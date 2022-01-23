@@ -8,8 +8,7 @@
 *      Note:  You can use ffmpeg to combine the resulting files in to a Video - https://www.ffmpeg.org/
 *             command = ffmpeg -framerate 10 -pattern_type glob -i '*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p timelapse.mp4
 *
-*
-*******************************************************************************************************************/
+********************************************************************************************************************/
 
 #if !defined ESP32
  #error This sketch is only for an ESP32Cam module
@@ -62,6 +61,8 @@
  const char* sversion = "23Jan22";                      // Sketch version
 
  const bool serialDebug = 1;                            // show debug info. on serial port (1=enabled, disable if using pins 1 and 3 as gpio)
+
+ float timeBetweenShots = 30.0;                         // time between image captures (seconds)
 
  uint16_t datarefresh = 2022;                           // how often to refresh data on root web page (ms)
  uint16_t imagerefresh = 5000;                          // how often to refresh the image on root web page (ms)
@@ -158,7 +159,6 @@ WebServer server(80);           // serve web pages on port 80
  bool sdcardPresent;                       // flag if an sd card is detected
  uint32_t imageCounter;                    // image file name on sd card counter
  String spiffsFilename = "/image.jpg";     // image name to use when storing in spiffs
- uint16_t timeBetweenShots = 30;           // time between image captures (seconds)
  bool timelapseEnabled = 0;                // enable timelapse recording
  String ImageResDetails = "Unknown";       // image resolution info
 
@@ -329,7 +329,8 @@ void loop() {
 //  record timelapse image
     static uint32_t lastCamera = millis();      // last time an image was captured
     if (timelapseEnabled) {
-      if ( ((unsigned long)(millis() - lastCamera) >= (timeBetweenShots * 1000))  && sdcardPresent ) {
+      int tTime = timeBetweenShots * 1000;
+      if ( ((unsigned long)(millis() - lastCamera) >= tTime)  && sdcardPresent ) {
         lastCamera = millis();     // reset timer
         storeImage();              // save an image to sd card
         if (serialDebug) Serial.println("Time lapse image captured");
@@ -759,30 +760,30 @@ void rootUserInput(WiFiClient &client) {
       }
     }
 
-  // if timelapse was adjusted - cameraImageExposure
+  // if timelapse was adjusted - timeBetweenShots (float)
       if (server.hasArg("timelapse")) {
         String Tvalue = server.arg("timelapse");   // read value
         if (Tvalue != NULL) {
-          int val = Tvalue.toInt();
-          if (val > 0 && val <= 3600 && val != timeBetweenShots) {
-            if (serialDebug) Serial.printf("Exposure changed to %d\n", val);
+          float val = Tvalue.toFloat();
+          if (val > 0.0 && val <= 3600.0 && val != timeBetweenShots) {
+            if (serialDebug) Serial.printf("Exposure changed to %4.1f\n", val);
             timeBetweenShots = val;
           }
         }
       }
 
-    // if brightness was adjusted - cameraImageBrightness
-        if (server.hasArg("bright")) {
-          String Tvalue = server.arg("bright");   // read value
-          if (Tvalue != NULL) {
-            int val = Tvalue.toInt();
-            if (val >= -2 && val <= 2 && val != cameraImageBrightness) {
-              if (serialDebug) Serial.printf("Brightness changed to %d\n", val);
-              cameraImageBrightness = val;
-              cameraImageSettings();           // Apply camera image settings
-            }
+  // if brightness was adjusted - cameraImageBrightness
+      if (server.hasArg("bright")) {
+        String Tvalue = server.arg("bright");   // read value
+        if (Tvalue != NULL) {
+          int val = Tvalue.toInt();
+          if (val >= -2 && val <= 2 && val != cameraImageBrightness) {
+            if (serialDebug) Serial.printf("Brightness changed to %d\n", val);
+            cameraImageBrightness = val;
+            cameraImageSettings();           // Apply camera image settings
           }
         }
+      }
 
   // if exposure was adjusted - cameraImageExposure
       if (server.hasArg("exp")) {
@@ -902,7 +903,7 @@ void handleRoot() {
       } else {
         client.print("<br>Images will be captured every");
       }
-      client.printf(" <input type='number' style='width: 50px' name='timelapse' min='1' max='3600' value='%d'> seconds \n", timeBetweenShots);
+      client.printf(" <input type='number' step='0.1' style='width: 50px' name='timelapse' min='0.1' max='3600.0' value='%.1f'> seconds \n", timeBetweenShots);
 
     // submit button
        client.println(" <input type='submit' name='submit' value='Submit change / Refresh Image'>");

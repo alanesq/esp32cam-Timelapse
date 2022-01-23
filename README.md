@@ -10,6 +10,9 @@ known bug: https://github.com/espressif/arduino-esp32/issues/5195<br><br>
 <br>I use this software to do this:  https://www.ffmpeg.org/
 <br>with the command:    ffmpeg -framerate 10 -pattern_type glob -i '*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p timelapse.mp4
 
+If it is unable to attach to the supplied wifi then it creates it's own access point called 'timelapse' with password '12345678'.
+
+
 <br><table><tr>
   <td><img src="/misc/tl.png" /></td>
 </tr></table> 

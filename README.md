@@ -19,7 +19,7 @@ If it is unable to attach to the supplied wifi then it creates it's own access p
 
 Notes:
 
-When starting it counts how many files are already in /img on the sd card, if there are a lot then this can take a long time
+As it is using 1-bit mode for the sdcard (so the flash doesn't blink when using camera and to free up some gpio pins) access can be slow and this sketch can create a lot of image files and as when starting it first counts how many files are already in /img on the sd card, if there are a lot then this can take a long time to start up, also if you click the delete all files it can take a very long time if there are a lot of files.  It is best to delete the files on a PC.
 
 
 <br><br>sketch location: https://github.com/alanesq/esp32cam-Timelapse

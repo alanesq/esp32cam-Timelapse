@@ -947,7 +947,7 @@ void handleRoot() {
       )=====", imagerefresh);
 
     // sketch info
-      client.println("<br><a href='https://github.com/alanesq/misc/blob/main/esp32cam-timelapse.cpp'>Sketch Source</a>");
+      client.println("<br><a href='https://github.com/alanesq/esp32cam-Timelapse'>Sketch Source</a>");
       client.println("<br>Create video from jpgs with: ffmpeg -framerate 6 -pattern_type glob -i '*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p timelapse.mp4");
 
  // --------------------------------------------------------------------

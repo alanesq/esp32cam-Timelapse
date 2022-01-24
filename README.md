@@ -17,5 +17,9 @@ If it is unable to attach to the supplied wifi then it creates it's own access p
   <td><img src="/misc/tl.png" /></td>
 </tr></table> 
 
-<br><br>sketch location: https://github.com/alanesq/esp32cam-Timelapse
+Notes:
 
+When starting it counts how many files are already in /img on the sd card, if there are a lot then this can take a long time
+
+
+<br><br>sketch location: https://github.com/alanesq/esp32cam-Timelapse

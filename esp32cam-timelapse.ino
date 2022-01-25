@@ -57,16 +57,16 @@
 //                           -SETTINGS
 // ---------------------------------------------------------------
 
- const char* stitle = "ESP32Cam_Timelapse";            // title of this sketch
+ const char* stitle = "ESP32Cam_Time-lapse";            // title of this sketch
  const char* sversion = "25Jan22";                      // Sketch version
 
- bool timelapseEnabled = 0;                             // set to 1 to enable timelapse recording at startup
+ bool timelapseEnabled = 0;                             // set to 1 to start recording at startup
  float timeBetweenShots = 30.0;                         // default time between image captures (seconds)
 
  byte flashRequired = 0;                                // default flash status: 0=no flash, 1=use flash, 2=use external flash (via gpio pin), 3=use flash and external
  uint32_t extFlashDelay = 0;                            // delay after turning external light on before taking picture (ms)
 
- const bool serialDebug = 1;                            // show debug info. on serial port (1=enabled, disable if using pins 1 and 3 as gpio)
+ const bool serialDebug = 0;                            // show debug info. on serial port (1=enabled, disable if using pins 1 and 3 as gpio)
 
  uint16_t datarefresh = 2022;                           // how often to refresh data on root web page (ms)
  uint16_t imagerefresh = 5000;                          // how often to refresh the image on root web page (ms)
@@ -79,7 +79,7 @@
   IPAddress NMask(255, 255, 255, 0);                    // net mask
 
  // Camera related
-   framesize_t FRAME_SIZE_IMAGE = FRAMESIZE_VGA;        // Image resolution:
+   framesize_t FRAME_SIZE_IMAGE = FRAMESIZE_XGA;        // Image resolution:
                                                         //               default = "const framesize_t FRAME_SIZE_IMAGE = FRAMESIZE_VGA"
                                                         //               160x120 (QQVGA), 128x160 (QQVGA2), 176x144 (QCIF), 240x176 (HQVGA),
                                                         //               320x240 (QVGA), 400x296 (CIF), 640x480 (VGA, default), 800x600 (SVGA),
@@ -563,7 +563,7 @@ void flashLED(int reps) {
 // ----------------------------------------------------------------
 //     send a standard html header (i.e. start of web page)
 // ----------------------------------------------------------------
-void sendHeader(WiFiClient &client, String wTitle) {
+void sendHeader(WiFiClient &client, char* hTitle) {
     client.write("HTTP/1.1 200 OK\r\n");
     client.write("Content-Type: text/html\r\n");
     client.write("Connection: close\r\n");
@@ -573,8 +573,9 @@ void sendHeader(WiFiClient &client, String wTitle) {
     client.write("<head>\n");
     client.write("<meta name='viewport' content='width=device-width, initial-scale=1.0'>\n");
     //client.write("<meta http-equiv='refresh' content='30'>\n");      // refresh page periodically to update jpg
-    client.print("<title>" + wTitle + "</title> </head>\n");
-    client.write("<body style='color: black; background-color: yellow; text-align: center;'>\n");
+    client.printf("<title>%s</title></head>\n", hTitle);
+    client.println("<body style='color: black; background-color: yellow; text-align: center;'>");
+    client.printf("<h1 style='color:red;'>%s</H1>\n", hTitle);
 }
 
 
@@ -595,14 +596,14 @@ void sendFooter(WiFiClient &client) {
 void resetCamera(bool type = 0) {
   if (serialDebug) Serial.println("Resetting camera");
   if (type == 1) {
-    // power cycle the camera module (handy if camera stops responding)
+    // power cycle the camera 
       digitalWrite(PWDN_GPIO_NUM, HIGH);    // turn power off to camera module
-      delay(300);
+      delay(500);
       digitalWrite(PWDN_GPIO_NUM, LOW);
-      delay(300);
+      delay(400);
       initialiseCamera();
     } else {
-    // reset via software (handy if you wish to change resolution or image type etc. - see test procedure)
+    // reset via software
       esp_camera_deinit();
       delay(50);
       initialiseCamera();
@@ -763,7 +764,7 @@ void rootUserInput(WiFiClient &client) {
 
   // if button6 was pressed (reset camera)
     if (server.hasArg("button6")) {
-      resetCamera(1);
+      resetCamera(0);
     }
 
   // if buttonE was pressed (enable/disable timelapse recording)
@@ -851,10 +852,6 @@ void handleRoot() {
 
 
  // html main body
-
-   // Page title
-    client.printf("<h1 style='color:red;'>%s</H1>\n", stitle);
-
 
     // ---------------------------------------------------------------------------------------------
     //  info which is periodically updated usin AJAX - https://www.w3schools.com/xml/ajax_intro.asp
@@ -1229,19 +1226,17 @@ void handleTest() {
    if (serialDebug) Serial.println("Test page requested by " + cIP.toString());
 
  // html header
-   sendHeader(client, "Testing");
+   sendHeader(client, "Testing Page");
 
 
  // html body
-   client.print("<h1>Test Page</h1>\n");
-
-
  // -------------------------------------------------------------------
 
 
 
 
-                          // test code goes here
+
+                          // test html code goes here
 
 
 

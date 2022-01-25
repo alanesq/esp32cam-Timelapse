@@ -11,7 +11,7 @@ known bug: https://github.com/espressif/arduino-esp32/issues/5195<br><br>
 <br>with the command:    ffmpeg -framerate 10 -pattern_type glob -i '*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p timelapse.mp4
 
 If it is unable to attach to the supplied wifi then it creates it's own access point called 'timelapse' with password '12345678'.
-
+It also has the option to toggle a gpio pin which can be used to control an external illumination light etc..
 
 <br><table><tr>
   <td><img src="/misc/tl.png" /></td>

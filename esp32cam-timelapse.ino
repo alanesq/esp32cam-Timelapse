@@ -58,11 +58,15 @@
 // ---------------------------------------------------------------
 
  const char* stitle = "ESP32Cam_Timelapse";            // title of this sketch
- const char* sversion = "23Jan22";                      // Sketch version
+ const char* sversion = "25Jan22";                      // Sketch version
+
+ bool timelapseEnabled = 0;                             // set to 1 to enable timelapse recording at startup
+ float timeBetweenShots = 30.0;                         // default time between image captures (seconds)
+
+ byte flashRequired = 0;                                // default flash status: 0=no flash, 1=use flash, 2=use external flash (via gpio pin), 3=use flash and external
+ uint32_t extFlashDelay = 0;                            // delay after turning external light on before taking picture (ms)
 
  const bool serialDebug = 1;                            // show debug info. on serial port (1=enabled, disable if using pins 1 and 3 as gpio)
-
- float timeBetweenShots = 30.0;                         // time between image captures (seconds)
 
  uint16_t datarefresh = 2022;                           // how often to refresh data on root web page (ms)
  uint16_t imagerefresh = 5000;                          // how often to refresh the image on root web page (ms)
@@ -75,7 +79,6 @@
   IPAddress NMask(255, 255, 255, 0);                    // net mask
 
  // Camera related
-   bool flashRequired = 0;                              // If flash to be used when capturing image (1 = yes)
    framesize_t FRAME_SIZE_IMAGE = FRAMESIZE_VGA;        // Image resolution:
                                                         //               default = "const framesize_t FRAME_SIZE_IMAGE = FRAMESIZE_VGA"
                                                         //               160x120 (QQVGA), 128x160 (QQVGA2), 176x144 (QCIF), 240x176 (HQVGA),
@@ -159,7 +162,6 @@ WebServer server(80);           // serve web pages on port 80
  bool sdcardPresent;                       // flag if an sd card is detected
  uint32_t imageCounter;                    // image file name on sd card counter
  String spiffsFilename = "/image.jpg";     // image name to use when storing in spiffs
- bool timelapseEnabled = 0;                // enable timelapse recording
  String ImageResDetails = "Unknown";       // image resolution info
 
 
@@ -253,6 +255,7 @@ void setup() {
      }
 
  // SD Card - if one is detected set 'sdcardPresent' High
+     if (serialDebug) Serial.println("Opening sd card");
      if (!SD_MMC.begin("/sdcard", true)) {        // if loading sd card fails
        // note: ('/sdcard", true)' = 1bit mode - see: https://www.reddit.com/r/esp32/comments/d71es9/a_breakdown_of_my_experience_trying_to_talk_to_an/
        if (serialDebug) Serial.println("No SD Card detected");
@@ -588,14 +591,16 @@ void sendFooter(WiFiClient &client) {
 // ----------------------------------------------------------------
 //                        reset the camera
 // ----------------------------------------------------------------
-// either hardware or software
+// either hardware(1) or software(0)
 void resetCamera(bool type = 0) {
+  if (serialDebug) Serial.println("Resetting camera");
   if (type == 1) {
     // power cycle the camera module (handy if camera stops responding)
       digitalWrite(PWDN_GPIO_NUM, HIGH);    // turn power off to camera module
       delay(300);
       digitalWrite(PWDN_GPIO_NUM, LOW);
       delay(300);
+      initialiseCamera();
     } else {
     // reset via software (handy if you wish to change resolution or image type etc. - see test procedure)
       esp_camera_deinit();
@@ -622,7 +627,7 @@ void changeResolution(framesize_t tRes = FRAMESIZE_96X96) {
   FRAME_SIZE_IMAGE = tRes;
   initialiseCamera();
   if (serialDebug) Serial.println("Camera resolution changed to " + String(tRes));
-  ImageResDetails = "Unknown";   // set next time image captured
+  ImageResDetails = "Unknown";   // will be set next time image captured
 }
 
 
@@ -663,9 +668,15 @@ fs::FS &fs = SD_MMC;          // sd card file system
 
  // capture the image from camera
    uint8_t currentBrightness = brightLEDbrightness;
-   if (flashRequired) brightLed(255);   // change LED brightness (0 - 255)
+   // flash modes: 0=no flash, 1=use flash, 2=use external flash (via gpio pin), 3=use flash and external
+   if (flashRequired==1 || flashRequired==3) brightLed(255);   // change LED brightness (0 - 255)
+   if (flashRequired==2 || flashRequired==3) {
+     digitalWrite(iopinB, HIGH);  // external flash on
+     delay(extFlashDelay);        // delay to let light turn on
+   }
    camera_fb_t *fb = esp_camera_fb_get();             // capture image frame from camera
-   if (flashRequired) brightLed(currentBrightness);   // change LED brightness back to previous state
+   if (flashRequired==1 || flashRequired==3) brightLed(currentBrightness);   // change LED brightness back to previous state
+   if (flashRequired==2 || flashRequired==3) digitalWrite(iopinB, LOW);  // external flash off
    if (!fb) {
      if (serialDebug) Serial.println("Error: Camera capture failed");
      return 0;
@@ -734,7 +745,8 @@ void rootUserInput(WiFiClient &client) {
 
   // if button3 was pressed (Toggle flash)
     if (server.hasArg("button3")) {
-      flashRequired = !flashRequired;
+      flashRequired++;
+      if (flashRequired > 3) flashRequired=0;
       if (serialDebug) Serial.println("Flash toggled to: " + String(flashRequired));
     }
 
@@ -744,9 +756,14 @@ void rootUserInput(WiFiClient &client) {
       changeResolution();   // cycle through some options
     }
 
-  // if button5 was pressed (elete all images
+  // if button5 was pressed (delete all images)
     if (server.hasArg("button5")) {
       deleteAllImages();
+    }
+
+  // if button6 was pressed (reset camera)
+    if (server.hasArg("button6")) {
+      resetCamera(1);
     }
 
   // if buttonE was pressed (enable/disable timelapse recording)
@@ -853,7 +870,7 @@ void handleRoot() {
         client.println("<br>Image size: <span id=uRes> - </span>");
 
       // illumination/flash led
-        client.println("<br>Illumination led brightness=<span id=uBrightness> - </span>, Flash is <span id=uFlash> - </span>");
+        client.println("<br>Illumination led brightness: <span id=uBrightness> - </span>, flash: <span id=uFlash> - </span>");
 
       // Current real time
         client.println("<br>Current time: <span id=uTime> - </span>");
@@ -906,7 +923,7 @@ void handleRoot() {
       client.printf(" <input type='number' step='0.1' style='width: 50px' name='timelapse' min='0.1' max='3600.0' value='%.1f'> seconds \n", timeBetweenShots);
 
     // submit button
-       client.println(" <input type='submit' name='submit' value='Submit change / Refresh Image'>");
+       client.println(" <input type='submit' name='submit' value='Submit changes'>");
 
    // Timelapse button
      client.print("<br><br><input name='buttonE' type='submit' style='height: 50px; width: 160px; ");
@@ -917,11 +934,13 @@ void handleRoot() {
      }
 
    // Misc bottons
-     client.println("<br><br><input style='height: 35px;' name='button1' value='Toggle Output Pin' type='submit'>");
+     client.println("<br><br>");
+     client.println("<input style='height: 35px;' name='button1' value='Toggle Output Pin' type='submit'>");
      client.println("<input style='height: 35px;' name='button2' value='Toggle Light' type='submit'>");
      client.println("<input style='height: 35px;' name='button3' value='Toggle flash' type='submit'>");
      client.println("<input style='height: 35px;' name='button4' value='Change Resolution' type='submit'>");
      client.println("<input style='height: 35px;' name='button5' value='Delete all images' type='submit'>");
+     client.println("<input style='height: 35px;' name='button6' value='Reset the camera' type='submit'>");
 
    // links to the other pages available
      client.println("<br><br>LINKS: ");
@@ -985,7 +1004,12 @@ void handleData(){
     reply += ",";
     reply += String(brightLEDbrightness);   // illumination led brightness
     reply += ",";
-    reply += (flashRequired==1) ? "enabled" : "disabled";   // if flash is enabled
+    // flash status
+      String tFlash="off";
+      if (flashRequired == 1) tFlash="Onboard LED enabled";
+      if (flashRequired == 2) tFlash="External enabled";
+      if (flashRequired == 3) tFlash="Onboard & External enabled";
+    reply += tFlash;
     reply += ",";
     reply += localTime();                // current date/time
     reply += ",";

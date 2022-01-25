@@ -67,7 +67,7 @@
  uint32_t extFlashDelay = 0;                            // delay after turning external light on before taking picture (ms)
 
  const bool serialDebug = 0;                            // show debug info. on serial port (1=enabled, disable if using pins 1 and 3 as gpio)
-
+ uint32_t sdReadTimeout = 20;                        // timeout if its taking too long to read all the files on the sd card (seconds)
  uint16_t datarefresh = 2022;                           // how often to refresh data on root web page (ms)
  uint16_t imagerefresh = 5000;                          // how often to refresh the image on root web page (ms)
 
@@ -279,6 +279,7 @@ void setup() {
 
  // discover the number of image files already stored in '/img' folder of the sd card and set image file counter accordingly
    imageCounter = 0;
+   uint32_t tTimer=millis();                     // for timeout if there are too many files
    if (sdcardPresent) {
      int tq=fs.mkdir("/img");                    // create the '/img' folder on sd card (in case it is not already there)
      if (!tq) {
@@ -287,15 +288,19 @@ void setup() {
 
      // open the image folder and step through all files in it
        File root = fs.open("/img");
-       while (true)
-       {
+       while ((millis() - tTimer) < (sdReadTimeout * 1000)) {
            File entry =  root.openNextFile();    // open next file in the folder
            if (!entry) break;                    // if no more files in the folder
            imageCounter ++;                      // increment image counter
            entry.close();
        }
        root.close();
-       if (serialDebug) Serial.printf("Image file count = %d \n",imageCounter);
+       if ((millis() - tTimer) >= sdReadTimeout) {
+         imageCounter=0;
+         if (serialDebug) Serial.println("Taking too long to count the files on sd card so setting to 0");
+       } else {
+         if (serialDebug) Serial.printf("Image file count = %d \n",imageCounter);
+       }
    }
 
  // define i/o pins
@@ -561,26 +566,51 @@ void flashLED(int reps) {
 
 
 // ----------------------------------------------------------------
-//     send a standard html header (i.e. start of web page)
+//      send standard html header (i.e. start of web page)
 // ----------------------------------------------------------------
 void sendHeader(WiFiClient &client, char* hTitle) {
-    client.write("HTTP/1.1 200 OK\r\n");
-    client.write("Content-Type: text/html\r\n");
-    client.write("Connection: close\r\n");
-    client.write("\r\n");
-    client.write("<!DOCTYPE HTML>\n");
-    client.write("<html lang='en'>\n");
-    client.write("<head>\n");
-    client.write("<meta name='viewport' content='width=device-width, initial-scale=1.0'>\n");
-    //client.write("<meta http-equiv='refresh' content='30'>\n");      // refresh page periodically to update jpg
-    client.printf("<title>%s</title></head>\n", hTitle);
-    client.println("<body style='color: black; background-color: yellow; text-align: center;'>");
-    client.printf("<h1 style='color:red;'>%s</H1>\n", hTitle);
+    // Start page
+      client.write("HTTP/1.1 200 OK\r\n");
+      client.write("Content-Type: text/html\r\n");
+      client.write("Connection: close\r\n");
+      client.write("\r\n");
+      client.write("<!DOCTYPE HTML><html lang='en'>\n");
+    // HTML / CSS
+      client.printf(R"=====(
+        <head>
+          <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+          <title>%s</title>
+          <style>
+            body {
+              color: black;
+              background-color: #FFFF00;
+              text-align: center;
+            }
+            input {
+              background-color: #FF9900;
+              border: 2px #FF9900;
+              color: blue;
+              padding: 3px 6px;
+              text-align: center;
+              text-decoration: none;
+              display: inline-block;
+              font-size: 16px;
+              cursor: pointer;
+              border-radius: 7px;
+            }
+            input:hover {
+              background-color: #FF4400;
+            }
+          </style>
+        </head>
+        <body>
+        <h1 style='color:red;'>%s</H1>
+      )=====", hTitle, hTitle);
 }
 
 
 // ----------------------------------------------------------------
-//      send a standard html footer (i.e. end of web page)
+//       send standard html footer (i.e. end of web page)
 // ----------------------------------------------------------------
 void sendFooter(WiFiClient &client) {
   client.write("</body></html>\n");
@@ -596,7 +626,7 @@ void sendFooter(WiFiClient &client) {
 void resetCamera(bool type = 0) {
   if (serialDebug) Serial.println("Resetting camera");
   if (type == 1) {
-    // power cycle the camera 
+    // power cycle the camera
       digitalWrite(PWDN_GPIO_NUM, HIGH);    // turn power off to camera module
       delay(500);
       digitalWrite(PWDN_GPIO_NUM, LOW);
@@ -641,7 +671,8 @@ void deleteAllImages() {
   fs::FS &fs = SD_MMC;                        // sd card file system
   if (serialDebug) Serial.println("Deleting all images on sd card");
   File root = fs.open("/img");
-  while(1) {
+  uint32_t tTimer=millis();
+  while ((millis() - tTimer) < (sdReadTimeout * 1000)) {
     File entry =  root.openNextFile();
     if (!entry) break;   // stop
     if (entry.isDirectory()) {
@@ -652,6 +683,9 @@ void deleteAllImages() {
       fs.remove(String(entry.name()));
     }
   }  // while loop
+  if ((millis() - tTimer) >= sdReadTimeout) {
+    if (serialDebug) Serial.println("Taking too long to delete all the files on sd card so timed out");
+  }
 }
 
 
@@ -915,7 +949,7 @@ void handleRoot() {
       if (timelapseEnabled) {
         client.print("<br>Images are being captured every");
       } else {
-        client.print("<br>Images will be captured every");
+        client.print("<br><br>Images will be captured every");
       }
       client.printf(" <input type='number' step='0.1' style='width: 50px' name='timelapse' min='0.1' max='3600.0' value='%.1f'> seconds \n", timeBetweenShots);
 
@@ -932,12 +966,12 @@ void handleRoot() {
 
    // Misc bottons
      client.println("<br><br>");
-     client.println("<input style='height: 35px;' name='button1' value='Toggle Output Pin' type='submit'>");
-     client.println("<input style='height: 35px;' name='button2' value='Toggle Light' type='submit'>");
-     client.println("<input style='height: 35px;' name='button3' value='Toggle flash' type='submit'>");
-     client.println("<input style='height: 35px;' name='button4' value='Change Resolution' type='submit'>");
-     client.println("<input style='height: 35px;' name='button5' value='Delete all images' type='submit'>");
-     client.println("<input style='height: 35px;' name='button6' value='Reset the camera' type='submit'>");
+     client.println("<input name='button1' value='Toggle Output Pin' type='submit'>");
+     client.println("<input name='button2' value='Toggle Light' type='submit'>");
+     client.println("<input name='button3' value='Toggle flash' type='submit'>");
+     client.println("<input name='button4' value='Change Resolution' type='submit'>");
+     client.println("<input name='button5' value='Delete all images' type='submit'>");
+     client.println("<input name='button6' value='Reset the camera' type='submit'>");
 
    // links to the other pages available
      client.println("<br><br>LINKS: ");

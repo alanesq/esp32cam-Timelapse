@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# ----------------------------------------
+#
+# Convert all JPG files in folder to video
+#
+#               21jan26
+#
+# ----------------------------------------
+
+#text colours
+    green="\e[32m"
+    red="\e[31m"
+    blue="\e[34m"
+    orange="\e[33m"
+    coloff="\e[0m"
+
+#  ----------------------------------------------------------------
+
+
+    clear
+    echo "----------------------------------------------------"
+    echo -e "${orange}      Converting JPG files to video   ${coloff}"
+    echo "----------------------------------------------------"
+    echo
+    echo "How many frames per second?"
+    read ans
+    
+    ffmpeg -framerate $ans -pattern_type glob -i '*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p output.mp4
+    
+    echo.
+    echo Finished, filename = output.mp4
+    echo
+	
+    # finished
+      notify-send -t 3000 "Jpg2Video" "Finished!!!!"       # popup message
+      exit 0    # stop
+
+      
+#  ----------------------------------------------------------------
+#end
+

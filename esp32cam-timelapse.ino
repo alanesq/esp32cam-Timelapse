@@ -58,21 +58,21 @@
 // ---------------------------------------------------------------
 
  const char* stitle = "ESP32Cam_Time-lapse";            // title of this sketch
- const char* sversion = "25Jan22";                      // Sketch version
+ const char* sversion = "26Jan22";                      // Sketch version
 
  bool timelapseEnabled = 0;                             // set to 1 to start recording at startup
- float timeBetweenShots = 30.0;                         // default time between image captures (seconds)
+ float timeBetweenShots = 10.0;                         // default time between image captures (seconds)
 
  byte flashRequired = 0;                                // default flash status: 0=no flash, 1=use flash, 2=use external flash (via gpio pin), 3=use flash and external
  uint32_t extFlashDelay = 0;                            // delay after turning external light on before taking picture (ms)
 
  const bool serialDebug = 0;                            // show debug info. on serial port (1=enabled, disable if using pins 1 and 3 as gpio)
- uint32_t sdReadTimeout = 20;                        // timeout if its taking too long to read all the files on the sd card (seconds)
- uint16_t datarefresh = 2022;                           // how often to refresh data on root web page (ms)
- uint16_t imagerefresh = 5000;                          // how often to refresh the image on root web page (ms)
+ uint32_t sdReadTimeout = 25;                           // timeout if its taking too long to read all the files on the sd card (seconds)
+ uint16_t datarefresh = 3100;                           // how often to refresh data on root web page (ms)
+ uint16_t imagerefresh = 6050;                          // how often to refresh the image on root web page (ms)
 
  // Access point wifi settings (used if unable to connect to wifi)
-  const uint32_t wifiTimeout = 15;                      // timeout when connecting to wifi in seconds
+  const uint32_t wifiTimeout = 12;                      // timeout when connecting to wifi in seconds
   const char *APSSID = "timelapse";
   const char *APPWD = "12345678";
   IPAddress Ip(192, 168, 1, 1);                         // ip address
@@ -586,7 +586,7 @@ void sendHeader(WiFiClient &client, char* hTitle) {
               background-color: #FFFF00;
               text-align: center;
             }
-            input {
+            input, a {
               background-color: #FF9900;
               border: 2px #FF9900;
               color: blue;
@@ -598,7 +598,7 @@ void sendHeader(WiFiClient &client, char* hTitle) {
               cursor: pointer;
               border-radius: 7px;
             }
-            input:hover {
+            input:hover, a:hover {
               background-color: #FF4400;
             }
           </style>
@@ -947,7 +947,7 @@ void handleRoot() {
 
    // Timelapse info
       if (timelapseEnabled) {
-        client.print("<br>Images are being captured every");
+        client.print("<br><br>Images are being captured every");
       } else {
         client.print("<br><br>Images will be captured every");
       }
@@ -974,14 +974,14 @@ void handleRoot() {
      client.println("<input name='button6' value='Reset the camera' type='submit'>");
 
    // links to the other pages available
-     client.println("<br><br>LINKS: ");
-     client.println("<a href='/photo'>CAPTURE SINGLE IMAGE</a> - ");
-     client.println("<a href='/stream'>STREAM VIDEO</a> - ");
+     client.println("<br><br>");
+     client.println("<a href='/photo'>CAPTURE AN IMAGE</a> ");
+     client.println("<a href='/stream'>STREAM VIDEO</a> ");
+     client.println("<a href='/jpg'>VIEW SINGLE IMAGE</a> ");
      client.println("<a href='/test'>TESTING PAGE</a>");
 
     // capture and show a jpg image
-      client.print("<br><br><a href='/jpg'>");           // make it a link
-      client.println("<img id='image1' src='/jpg' width='320' height='240'/> </a>");     // show image from http://x.x.x.x/jpg
+      client.println("<br><br><img id='image1' src='/jpg' width='320' height='240'/>");     // show image from http://x.x.x.x/jpg
 
     // javascript to refresh the image periodically
       client.printf(R"=====(

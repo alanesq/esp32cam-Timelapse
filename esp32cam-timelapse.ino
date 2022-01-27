@@ -58,7 +58,7 @@
 // ---------------------------------------------------------------
 
  const char* stitle = "ESP32Cam_Time-lapse";            // title of this sketch
- const char* sversion = "26Jan22";                      // Sketch version
+ const char* sversion = "27Jan22";                      // Sketch version
 
  bool timelapseEnabled = 0;                             // set to 1 to start recording at startup
  float timeBetweenShots = 10.0;                         // default time between image captures (seconds)
@@ -391,7 +391,7 @@ bool initialiseCamera() {
    config.frame_size = FRAME_SIZE_IMAGE;         // Image sizes: 160x120 (QQVGA), 128x160 (QQVGA2), 176x144 (QCIF), 240x176 (HQVGA), 320x240 (QVGA),
                                                  //              400x296 (CIF), 640x480 (VGA, default), 800x600 (SVGA), 1024x768 (XGA), 1280x1024 (SXGA),
                                                  //              1600x1200 (UXGA)
-   config.jpeg_quality = 6;                      // 0-63 lower number means higher quality
+   config.jpeg_quality = 15;                     // 0-63 lower number means higher quality (can cause failed image capture if set too low at higher resolutions)
    config.fb_count = 1;                          // if more than one, i2s runs in continuous mode. Use only with JPEG
 
    // check the esp32cam board has a psram chip installed (extra memory used for storing captured images)
@@ -426,7 +426,8 @@ bool initialiseCamera() {
 // Adjust image properties (brightness etc.)
 // Defaults to auto adjustments if exposure and gain are both set to zero
 // - Returns TRUE if successful
-// BTW - some interesting info on exposure times here: https://github.com/raduprv/esp32-cam_ov2640-timelapse
+// More info: https://randomnerdtutorials.com/esp32-cam-ov2640-camera-settings/
+//            interesting info on exposure times here: https://github.com/raduprv/esp32-cam_ov2640-timelapse
 
 bool cameraImageSettings() {
 
@@ -954,10 +955,10 @@ void handleRoot() {
       client.printf(" <input type='number' step='0.1' style='width: 50px' name='timelapse' min='0.1' max='3600.0' value='%.1f'> seconds \n", timeBetweenShots);
 
     // submit button
-       client.println(" <input type='submit' name='submit' value='Submit changes'>");
+       client.println("<br><br><input type='submit' name='submit' value='Submit changes'>");
 
    // Timelapse button
-     client.print("<br><br><input name='buttonE' type='submit' style='height: 50px; width: 160px; ");
+     client.print(" <input name='buttonE' type='submit' style='height: 50px; width: 160px; ");
      if (timelapseEnabled) {
        client.print("color:red;' value='Stop recording'>");
      } else {
